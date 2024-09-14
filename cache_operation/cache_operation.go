@@ -10,11 +10,11 @@ import (
 )
 
 type CacheItem struct {
-	Data interface{} `json:"data"`
-	TTL  time.Time   `json:"ttl"`
+	Data []byte    `json:"data"`
+	TTL  time.Time `json:"ttl"`
 }
 
-func NewCacheItem(data interface{}, ttl time.Duration) *CacheItem {
+func NewCacheItem(data []byte, ttl time.Duration) *CacheItem {
 	return &CacheItem{
 		Data: data,
 		TTL:  time.Now().Add(ttl),
@@ -62,7 +62,7 @@ func Set(db *badger.DB, key string, value CacheItem) error {
 	if err != nil {
 		return fmt.Errorf("error setting value in database: %v", err)
 	}
-	fmt.Printf("Set: %s -> %v\n", key, value)
+	fmt.Printf("Set: %s\n", key)
 	return nil
 }
 
@@ -86,7 +86,7 @@ func Get(db *badger.DB, key string) (CacheItem, error) {
 	if err != nil {
 		return value, err
 	}
-	fmt.Printf("Get: %s -> %v\n", key, value)
+	fmt.Printf("Get: %s\n", key)
 	return value, nil
 }
 
