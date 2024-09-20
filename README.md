@@ -36,7 +36,7 @@ CacheGate is perfect for environments where repeated API requests put a load on 
     "ttl": 5,
     "urls_to_cache": [
         "/api_v2/*",
-        "/api"
+        "/api/user/*"
     ]
 }
 ```
@@ -48,4 +48,4 @@ Run CacheGate with a configuration file:
 ```bash
 CacheGate -config /path/to/config.json
 
-
+```

@@ -76,12 +76,11 @@ func ProxyHandler(db *badger.DB, config Config) http.HandlerFunc {
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		cacheKey := CacheKey(r.URL.String())
-
+		fmt.Printf("Server hit: Request  🗄️ -> %s \n", r.URL.String())
 		if r.Method == "GET" && ShouldCacheURL(r.URL.Path, config.UrlsToCache) {
-			fmt.Println(r.URL.String())
 			// Check if the response is already cached
 			if cachedResponse, err := cacheoperation.Get(db, cacheKey); err == nil {
-				fmt.Println("Cache hit: Serving from cache 🗄️")
+				fmt.Printf("Cache hit: Serving from cache 🗄️ -> %s \n", r.URL.String())
 				w.Header().Set("Content-Type", r.Header.Get("Content-Type"))
 				w.Write(cachedResponse.Data)
 				return

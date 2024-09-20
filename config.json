@@ -1,9 +1,9 @@
 {
     "port": "8091",
     "remote_url": "http://localhost/test",
-    "ttl": 5,
+    "ttl": 2,
     "urls_to_cache": [
-        "/api_v2/*",
-        "/api"
+         "/api_v2/*",
+        "/api/user/*"
     ]
 }
