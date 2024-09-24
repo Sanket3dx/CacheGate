@@ -9,7 +9,8 @@ import (
 )
 
 func init() {
-	fmt.Println("#################---CacheGate---###################")
+	fmt.Println("🚀 CacheGate")
+	fmt.Println("🔗 https://github.com/Sanket3dx")
 }
 
 func main() {
