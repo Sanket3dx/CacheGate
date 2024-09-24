@@ -43,7 +43,7 @@ func bytesToStruct(data []byte) (CacheItem, error) {
 }
 
 func OpenDB(dbName string) *badger.DB {
-	opts := badger.DefaultOptions("./" + dbName)
+	opts := badger.DefaultOptions("./" + dbName).WithLogger(nil)
 	db, err := badger.Open(opts)
 	if err != nil {
 		log.Fatal(err)
