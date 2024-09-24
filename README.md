@@ -34,9 +34,12 @@ CacheGate is perfect for environments where repeated API requests put a load on 
     "port": "8091",
     "remote_url": "http://localhost/test",
     "ttl": 5,
-    "urls_to_cache": [
-        "/api_v2/*",
-        "/api/user/*"
+    "url_to_cache": [
+        "/api/v1/products/*",
+        "/api/v1/users/*",
+        "/static/*",
+        "/assets/images/*",
+        "/docs/*"
     ]
 }
 ```
