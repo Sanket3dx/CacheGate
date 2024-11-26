@@ -6,7 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"net/http/httputil"
@@ -18,11 +18,13 @@ import (
 	"github.com/dgraph-io/badger"
 )
 
+// Config holds proxy configurations.
 type Config struct {
-	Port        string   `json:"port"`
-	RemoteURL   string   `json:"remote_url"`
-	TTl         int      `json:"ttl"`
-	UrlsToCache []string `json:"urls_to_cache"`
+	Port              string   `json:"port"`
+	RemoteURL         string   `json:"remote_url"`
+	TTL               int      `json:"ttl"`
+	UrlsToCache       []string `json:"urls_to_cache"`
+	ParamsToSkipInKey []string `json:"params_to_skip_in_key"`
 }
 
 func LoadConfigFromFile(path string) (Config, error) {
@@ -32,7 +34,7 @@ func LoadConfigFromFile(path string) (Config, error) {
 		return config, fmt.Errorf("failed to open config file: %v", err)
 	}
 	defer file.Close()
-	data, err := ioutil.ReadAll(file)
+	data, err := io.ReadAll(file)
 	if err != nil {
 		return config, fmt.Errorf("failed to read config file: %v", err)
 	}
@@ -44,7 +46,6 @@ func LoadConfigFromFile(path string) (Config, error) {
 }
 
 func matchPattern(url, pattern string) bool {
-	// Handle wildcard match (*)
 	if strings.HasSuffix(pattern, "/*") {
 		basePattern := strings.TrimSuffix(pattern, "/*")
 		return strings.HasPrefix(url, basePattern)
@@ -66,62 +67,70 @@ func CacheKey(url string) string {
 	return hex.EncodeToString(hash[:])
 }
 
+// RemoveParams removes specified parameters from the URL.
+func RemoveParams(rawURL string, paramsToRemove []string) string {
+	parsedURL, err := url.Parse(rawURL)
+	if err != nil {
+		fmt.Println("Error parsing URL:", err)
+		return ""
+	}
+	query := parsedURL.Query()
+	for _, param := range paramsToRemove {
+		query.Del(param)
+	}
+	parsedURL.RawQuery = query.Encode()
+	return parsedURL.String()
+}
+
 func ProxyHandler(db *badger.DB, config Config) http.HandlerFunc {
 	target, err := url.Parse(config.RemoteURL)
 	if err != nil {
-		fmt.Println("Error parsing target URL:", err)
+		log.Fatalf("Error parsing target URL: %v", err)
 	}
-	ttl := time.Duration(config.TTl)
+	ttl := time.Duration(config.TTL) * time.Second
 	proxy := httputil.NewSingleHostReverseProxy(target)
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		cacheKey := CacheKey(r.URL.String())
-		fmt.Printf("Server hit: Request  🗄️ -> %s \n", r.URL.String())
+		cacheKey := CacheKey(RemoveParams(r.URL.String(), config.ParamsToSkipInKey))
 		if r.Method == "GET" && ShouldCacheURL(r.URL.Path, config.UrlsToCache) {
-			// Check if the response is already cached
 			if cachedResponse, err := cacheoperation.Get(db, cacheKey); err == nil {
-				fmt.Printf("Cache hit: Serving from cache 🚀 -> %s \n", r.URL.String())
-				w.Header().Set("Content-Type", r.Header.Get("Content-Type"))
+				fmt.Printf("Cache hit: Serving from cache -> %s\n", RemoveParams(r.URL.String(), config.ParamsToSkipInKey))
+				for k, v := range cachedResponse.Headers {
+					w.Header().Set(k, v)
+				}
+				w.WriteHeader(http.StatusOK)
 				w.Write(cachedResponse.Data)
 				return
 			}
 		}
-		// r.Header.Set("Host", target.Host)
 
-		// If not cached, forward the request to the target server
 		proxy.ModifyResponse = func(response *http.Response) error {
-			bodyBytes, err := ioutil.ReadAll(response.Body)
+			bodyBytes, err := io.ReadAll(response.Body)
 			if err != nil {
 				return err
 			}
+			response.Body = io.NopCloser(strings.NewReader(string(bodyBytes)))
 
-			// Cache the response if it's a GET request
 			if r.Method == "GET" && ShouldCacheURL(r.URL.Path, config.UrlsToCache) {
-				fmt.Println(r.URL.String())
-				cacheItem := cacheoperation.NewCacheItem(bodyBytes, ttl)
-				err = cacheoperation.Set(db, cacheKey, *cacheItem)
-				if err != nil {
-					fmt.Printf("Error caching response: %v\n", err)
+				headers := make(map[string]string)
+				for k, v := range response.Header {
+					headers[k] = strings.Join(v, ", ")
 				}
+				cacheItem := cacheoperation.NewCacheItem(bodyBytes, headers, ttl)
+				if err := cacheoperation.Set(db, cacheKey, *cacheItem); err != nil {
+					log.Printf("Error caching response: %v\n", err)
+				}
+				fmt.Printf("caching response: -> %s\n", RemoveParams(r.URL.String(), config.ParamsToSkipInKey))
 			}
-
-			// Reconstruct the response body after caching
-			response.Body = ioutil.NopCloser(strings.NewReader(string(bodyBytes)))
-			response.ContentLength = int64(len(bodyBytes))
 			return nil
 		}
 
-		// Forward the request to the target server
 		proxy.ServeHTTP(w, r)
 	}
 }
 
 func StartProxy(db *badger.DB, config Config) {
-	_, err := url.Parse(config.RemoteURL)
-	if err != nil {
-		fmt.Println("Error parsing target URL:", err)
-		return
-	}
 	http.HandleFunc("/", ProxyHandler(db, config))
+	log.Printf("Starting proxy on port %s\n", config.Port)
 	log.Fatal(http.ListenAndServe(":"+config.Port, nil))
 }

@@ -10,14 +10,16 @@ import (
 )
 
 type CacheItem struct {
-	Data []byte    `json:"data"`
-	TTL  time.Time `json:"ttl"`
+	Data    []byte            `json:"data"`
+	Headers map[string]string `json:"headers"`
+	TTL     time.Time         `json:"ttl"`
 }
 
-func NewCacheItem(data []byte, ttl time.Duration) *CacheItem {
+func NewCacheItem(data []byte, headers map[string]string, ttl time.Duration) *CacheItem {
 	return &CacheItem{
-		Data: data,
-		TTL:  time.Now().Add(ttl),
+		Data:    data,
+		Headers: headers,
+		TTL:     time.Now().Add(ttl),
 	}
 }
 
