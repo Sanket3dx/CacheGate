@@ -40,6 +40,9 @@ CacheGate is perfect for environments where repeated API requests put a load on 
         "/static/*",
         "/assets/images/*",
         "/docs/*"
+    ],
+    "params_to_skip_in_key": [
+        "_csrf_token"
     ]
 }
 ```
