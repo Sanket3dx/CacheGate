@@ -87,7 +87,7 @@ func ProxyHandler(db *badger.DB, config Config) http.HandlerFunc {
 	if err != nil {
 		log.Fatalf("Error parsing target URL: %v", err)
 	}
-	ttl := time.Duration(config.TTL) * time.Second
+	ttl := time.Duration(config.TTL)
 	proxy := httputil.NewSingleHostReverseProxy(target)
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -109,6 +109,7 @@ func ProxyHandler(db *badger.DB, config Config) http.HandlerFunc {
 			if err != nil {
 				return err
 			}
+			fmt.Printf("Server Hit: -> %s\n", RemoveParams(r.URL.String(), config.ParamsToSkipInKey))
 			response.Body = io.NopCloser(strings.NewReader(string(bodyBytes)))
 
 			if r.Method == "GET" && ShouldCacheURL(r.URL.Path, config.UrlsToCache) {
